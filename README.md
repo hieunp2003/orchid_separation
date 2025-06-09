@@ -15,8 +15,15 @@ This project detects and separates orchid buds using:
 
 https://www.canva.com/design/DAGp2TSzR4A/v7b_Tqwtj_Q-tFWEhDL3Uw/edit?utm_content=DAGp2TSzR4A&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton
 
-### 🧪 Test Sample
-input
+## 📸 Preview: Input vs Output
+
+| Input Image | Output Result |
+|-------------|---------------|
+| ![](preview/1.jpg) | ![](preview/1%20(2).jpg) |
+| ![](preview/2.jpg) | ![](preview/2%20(2).jpg) |
+| ![](preview/3.jpg) | ![](preview/3%20(2).jpg) |
+| ![](preview/6%20(2).jpg) | ![](preview/6.jpg) |
+
 
 
 ### 🧱 Folder Structure
