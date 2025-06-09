@@ -3,149 +3,150 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 
-from scripts.segmentation_and_detection import tta_segmentation # Hàm detect mask, obb
-from scripts.segmentation_and_detection import normal_segmentation # no TTA
-from scripts.segmentation_and_detection import full_segment
-from scripts.segmentation_and_detection import obb_detection_xywhr
+# --- Import pipeline helper functions ---
+from scripts.segmentation_and_detection import (
+    tta_segmentation,          # detect mask + OBB with TTA
+    normal_segmentation,       # detect mask + OBB without TTA
+    full_segment,              # segment full branch mask
+    obb_detection_xywhr        # detect OBBs (xywhr format)
+)
 
-from scripts.find_direction import process_bud_direction # Hàm tìm vector hướng
+from scripts.find_direction import process_bud_direction          # compute direction vectors
+from scripts.bud_separating_function import (
+    build_buds_list,           # determine bud ordering
+    separation_vector,         # compute separation vector
+    single_branch_separation   # cut-line for single branch
+)
 
-from scripts.bud_separating_function import build_buds_list # Hàm tìm số thứ tự
-from scripts.bud_separating_function import separation_vector
-from scripts.bud_separating_function import single_branch_separation
+from scripts.draw_function import (
+    draw_obb_fixed_color,
+    put_debug_text,
+    draw_vector,
+    draw_bud_annotations,
+    draw_cut_line
+)
 
-from scripts.draw_function import draw_obb_fixed_color
-from scripts.draw_function import put_debug_text
-from scripts.draw_function import draw_vector
-from scripts.draw_function import draw_bud_annotations
-from scripts.draw_function import draw_cut_line
-
-# === MODEL PATH ===
-MODEL_SEG_PATH = "models/best_seg.pt"
-MODEL_OBB_PATH = "models/best_obb.pt"
+# === MODEL PATHS ===
+MODEL_SEG_PATH     = "models/best_seg.pt"
+MODEL_OBB_PATH     = "models/best_obb.pt"
 MODEL_SEGFULL_PATH = "models/best_segfull.pt"
 
-# === Test folder and save folder ===
-test_path = r'data\test_images'
-save_dir = 'runs\casetest'
+# === Input / Output folders ===
+test_path = r"data\test_images"
+save_dir  = r"runs\casetest"
 os.makedirs(save_dir, exist_ok=True)
 
-# === Check file tồn tại trước khi load ===
+# === Verify model files exist BEFORE loading ===
 for path in [MODEL_SEG_PATH, MODEL_OBB_PATH, MODEL_SEGFULL_PATH]:
     if not os.path.exists(path):
         raise FileNotFoundError(f"❌ Missing model file: {path}")
 
-# === Load models ===
-model_seg = YOLO(MODEL_SEG_PATH)
-model_obb = YOLO(MODEL_OBB_PATH)
+# === Load YOLO models ===
+model_seg     = YOLO(MODEL_SEG_PATH)
+model_obb     = YOLO(MODEL_OBB_PATH)
 model_segfull = YOLO(MODEL_SEGFULL_PATH)
 
-
-
 if __name__ == "__main__":
-    # === Loop through each image ===
+
+    # --- Iterate over every image in test folder ---
     for img_file in os.listdir(test_path):
-        if not img_file.lower(). endswith(('.jpg', '.jpeg', '.png')):
+        if not img_file.lower().endswith(('.jpg', '.jpeg', '.png')):
             continue
 
-        #load ảnh
+        # Load and resize image
         img_path = os.path.join(test_path, img_file)
-        image = cv2.imread(img_path)
-        image = cv2.resize(image, (640, 640))
+        image    = cv2.imread(img_path)
+        image    = cv2.resize(image, (640, 640))
 
-        #---------------INFERENCE------------------------------
+        # ----------------------- INFERENCE -----------------------
 
-        # Step 1: Find big_mask
+        # 1️⃣ Segment full branch mask
         big_masks = full_segment(image, model_segfull)
 
-        # Step 2: Segmentation + TTA
-        masked_image, darken_masks, bud_masks, selected_big_mask = tta_segmentation(image, big_masks, model_seg)
-        print("bigmask available:", len(selected_big_mask))
-        print("Number of darken masks:", len(darken_masks))
-        print("Number of bud masks:", len(bud_masks))
+        # 2️⃣ Bud segmentation + TTA
+        masked_image, darken_masks, bud_masks, selected_big_mask = tta_segmentation(
+            image, big_masks, model_seg
+        )
+        print("Selected big masks:", len(selected_big_mask))
+        print("Darken masks:", len(darken_masks))
+        print("Bud masks:", len(bud_masks))
 
-        # Step 3: Detect OBB
-        bud_obbs, darken_obbs = obb_detection_xywhr(image, selected_big_mask, model_obb, conf_thres=0.295)
-        print("bigmask available:", len(selected_big_mask))
-        print("Number of darken obb:", len(darken_obbs))
-        print("Number of bud obb:", len(bud_obbs))
-        #--------------DIRECTION---------------------------------------------------------------
-        # Step 4: Find direction vectors from each OBB to nearest mask center
-        direction_vectors, branches_centroids, darken_centroid = process_bud_direction(bud_obbs, darken_obbs, darken_masks, bud_masks)
-        # -------------SEPARATION-------------------------------------------------------------------
-        # Step 5: Find bud order
+        # 3️⃣ OBB detection
+        bud_obbs, darken_obbs = obb_detection_xywhr(
+            image, selected_big_mask, model_obb, conf_thres=0.295
+        )
+        print("Darken OBBs:", len(darken_obbs))
+        print("Bud OBBs:", len(bud_obbs))
+
+        # 4️⃣ Compute direction vectors from each OBB to nearest mask centroid
+        direction_vectors, branches_centroids, darken_centroid = process_bud_direction(
+            bud_obbs, darken_obbs, darken_masks, bud_masks
+        )
+
+        # 5️⃣ Determine bud ordering
         buds_list = build_buds_list(direction_vectors, darken_centroid)
 
-        # Step 6: Find cut line
-        # Single branch
-        if len(bud_obbs) == 1:
+        # 6️⃣ Compute cut-lines
+        if len(bud_obbs) == 1:                                  # Single bud on branch
             if not direction_vectors:
-                raise ValueError("bud_obbs ==1, direction_vectors is empty. Check input data or function logic.")
+                raise ValueError("direction_vectors empty for single bud case.")
             M = direction_vectors[0][0]
 
             leaf_line, darken_line = single_branch_separation(bud_obbs, M)
-            # Vẽ đường cắt lá (màu xanh dương)
-            masked_image = draw_cut_line(masked_image, leaf_line, color=(0, 255, 0))
-            # Vẽ đường cắt darken (màu đỏ)
-            masked_image = draw_cut_line(masked_image, darken_line, color=(0, 0, 255))
+            # Draw leaf cut (green)
+            masked_image = draw_cut_line(masked_image, leaf_line,   color=(0, 255, 0))
+            # Draw darken cut (red)
+            masked_image = draw_cut_line(masked_image, darken_line, color=(0,   0,255))
 
-        # Multiple braches
-        else:
-            # Step 6.1: Find separation line
-            sep_vec = separation_vector(buds_list,darken_centroid)
-            # Step 6.2: draw separation line
-            # -> 6.2.1 nếu sep_vec trả về list thì vẽ các điểm
+        else:                                                    # Multiple buds
+            # 6.1 Compute separation vector / line
+            sep_vec = separation_vector(buds_list, darken_centroid)
+
+            # 6.2 Draw separation line
             if isinstance(sep_vec, list):
-                # TH vẽ đường biên/ đường cắt
+                # If list of points, connect consecutive points
                 if len(sep_vec) >= 2 and all(len(p) == 2 for p in sep_vec):
-                    # Nối các điểm (linepoints)
                     for i in range(len(sep_vec) - 1):
-                        masked_image = draw_cut_line(masked_image, [sep_vec[i], sep_vec[i + 1]], (0, 120, 255))
+                        masked_image = draw_cut_line(
+                            masked_image, [sep_vec[i], sep_vec[i + 1]], (0, 120, 255)
+                        )
                     put_debug_text(masked_image, "list>=2")
-
-                # ko đủ 2 điểm trở lên
                 else:
-                    print("⚠️ sep_vec không hợp lệ::", sep_vec)
-                    put_debug_text(masked_image, "THIẾU ĐIỂM")
-
-            # -> 6.2.2 nếu sep_vec không phải string hoặc list
+                    print("⚠️ Invalid sep_vec:", sep_vec)
+                    put_debug_text(masked_image, "MISSING POINTS")
             else:
-                print("⚠️ sep_vec không hợp lệ:", sep_vec)
-                put_debug_text(masked_image, "không hợp lệ")
+                print("⚠️ sep_vec not list:", sep_vec)
+                put_debug_text(masked_image, "INVALID")
 
-        # -------------VISUALIZATION-------------------------------------------------------------------
-        # Step 7: Draw
-        # 7.0 OBB
-        obb_mask_image = draw_obb_fixed_color(bud_obbs, masked_image)
-        masked_image = obb_mask_image
+        # ------------------- VISUALIZATION ---------------------
 
-        # 7.1 direction vectors for buds
+        # Draw OBBs
+        masked_image = draw_obb_fixed_color(bud_obbs, masked_image)
+
+        # Draw direction vectors
         for M, dir_vec, _, length, _ in direction_vectors:
             end = M + dir_vec * length
             draw_vector(masked_image, M, end)
 
-        # 7.2 darken centroid
+        # Draw darken centroid
         x_darken, y_darken = darken_centroid
-        cv2.circle(masked_image, (int(x_darken),int(y_darken)), 3, (255, 255, 255), -1)
+        cv2.circle(masked_image, (int(x_darken), int(y_darken)), 3, (255, 255, 255), -1)
 
-        # 7.3 braches centroid
-        for i, centroid in enumerate(branches_centroids, start=1):  # Bắt đầu từ 1
-            cx, cy = centroid.astype(int)
+        # Draw branch centroids
+        for cx, cy in (c.astype(int) for c in branches_centroids):
             cv2.circle(masked_image, (cx, cy), 3, (0, 0, 255), -1)
 
-        # 7.4 bud order number
+        # Draw bud order annotations
         masked_image = draw_bud_annotations(masked_image, buds_list)
 
-        # Step 8: Save result
+        # 8️⃣ Save result
         save_path = os.path.join(save_dir, img_file)
         cv2.imwrite(save_path, masked_image)
         print(f"✅ Saved: {save_path}")
 
-        # Step 9: Show image
+        # 9️⃣ Display (ESC to exit)
         cv2.imshow("Seg + OBB + Dir", masked_image)
-        key = cv2.waitKey(0)
-        if key == 27:  # ESC to quit
+        if cv2.waitKey(0) == 27:
             break
 
     cv2.destroyAllWindows()
-
