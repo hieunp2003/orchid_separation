@@ -1,0 +1,16 @@
+# Bỏ model nặng, output
+models/
+runs/
+
+# Bỏ file tạm, cache, hệ điều hành
+__pycache__/
+*.pyc
+*.pyo
+*.log
+.DS_Store
+Thumbs.db
+
+# Bỏ cấu hình IDE
+.idea/
+.vscode/
+*.iml
