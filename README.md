@@ -43,15 +43,12 @@ Orchid_project_git/
 pip install -r requirements.txt
 ```
 
-### 🧠 Pretrained Models
-
-Put the following models into models/
-(download from https://drive.google.com/drive/folders/1XKJg7oOEeHsFCC7VrjzKQfVqJ7QnEdeU?usp=sharing):
-
-- best_seg.pt — segmentation for buds
-- best_obb.pt — oriented bounding box detection
-- best_segfull.pt — full branch mask
-
+> #### 🧠 Pretrained Models  
+> Put the following models into `models/`  
+> (download from [Google Drive](https://drive.google.com/drive/folders/1XKJg7oOEeHsFCC7VrjzKQfVqJ7QnEdeU?usp=sharing)):  
+> - `best_seg.pt` — segmentation for branches  
+> - `best_obb.pt` — oriented bounding box detection for buds 
+> - `best_segfull.pt` — full orchid mask  
 
 ### ▶️ Run the pipeline
 ```
