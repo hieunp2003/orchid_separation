@@ -122,13 +122,14 @@ def separation_vector(buds_list, darken_centroid):
         M1, M2 = bud1['M'], bud2['M']
         Dir1, Dir2 = bud1['Dir'], bud2['Dir']
         bmask1, bmask2 = bud1['bmask'], bud2['bmask']
-        _, _, w1, h1, *_ = bud1['OBB']
-        _, _, w2, h2, *_ = bud2['OBB']
+        x1, y1, w1, h1, *_ = bud1['OBB']
+        x2, y2, w2, h2, *_ = bud2['OBB']
 
         w_1 = min(w1, h1)
         w_2 = min(w2, h2)
 
-        selected_pair = (M1, M2)
+        # selected_pair = (M1, M2) # Option 1: cutting point considered by M1,M2
+        selected_pair = ((x1,y1), (x2,y2)) # Option 2: cutting point considered by 2 obb centroid
         selected_dirs = (Dir1, Dir2)
         selected_mask = (bmask1, bmask2)
 
@@ -213,7 +214,7 @@ def case_11_separation(selected_pair, darken_centroid, length=100):
 
     return [pt1, pt2]
 #separation line go through intersection centroid
-def case_12_separation(selected_pair, darken_centroid, selected_mask, w_1,w_2, length=100):
+def case_12_separation(selected_pair, darken_centroid, selected_mask, w_1,w_2, length=150):
     M1, M2 = selected_pair
     M1 = np.array(M1, dtype=float)
     M2 = np.array(M2, dtype=float)
@@ -256,7 +257,7 @@ def unit(v):
 def bisector_vector(v1, v2):
     return unit(unit(v1) + unit(v2))
 #separation line parallel with bisector and go through O
-def case_2_separation(M1, M2, v1, v2, selected_mask, w_1, w_2, L=200):
+def case_2_separation(M1, M2, v1, v2, selected_mask, w_1, w_2, L=150):
     bmask1,bmask2 = selected_mask
     M1 = np.array(M1, dtype=float)
     M2 = np.array(M2, dtype=float)
@@ -266,7 +267,7 @@ def case_2_separation(M1, M2, v1, v2, selected_mask, w_1, w_2, L=200):
     b_vec = bisector_vector(v1, v2)
 
     # Step 3: intersection point H
-    #take H = O
+# Option 1: take H = O
     H = O
     print("Case 2")
 

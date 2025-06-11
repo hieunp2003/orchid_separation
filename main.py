@@ -94,9 +94,9 @@ if __name__ == "__main__":
 
             leaf_line, darken_line = single_branch_separation(bud_obbs, M)
             # Draw leaf cut (green)
-            masked_image = draw_cut_line(masked_image, leaf_line,   color=(0, 255, 0))
+            masked_image = draw_cut_line(masked_image, leaf_line, color=(0, 255, 0))
             # Draw darken cut (red)
-            masked_image = draw_cut_line(masked_image, darken_line, color=(0,   0,255))
+            masked_image = draw_cut_line(masked_image, darken_line, color=(0, 0, 255))
 
         else:                                                    # Multiple buds
             # 6.1 Compute separation vector / line
