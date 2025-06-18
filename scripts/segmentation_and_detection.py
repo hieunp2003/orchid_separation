@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 import math
 import random
-from final_find_direction import is_point_inside_mask
+from scripts.find_direction import is_point_inside_mask
 
 
 def apply_tta(image):
