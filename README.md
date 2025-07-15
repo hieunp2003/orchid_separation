@@ -1,6 +1,7 @@
 # 🌸 Orchid Bud Detection & Separation with YOLOv8   
 🔬 Tách chồi hoa lan tự động với YOLOv8 
 
+![Demo](preview/demo.gif)
 ---
 
 ## 🇺🇸 English Version
